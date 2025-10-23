@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CIFAR-10 Classifier</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>CIFAR-10 Classifier</h1>
+      <p class="subtitle">Upload an image or use your webcam to get top-3 predictions.</p>
+      <div class="header-actions">
+        <label class="toggle">
+          <input id="darkToggle" type="checkbox" />
+          <span>Dark mode</span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-grid">
+
+    <section class="upload-card">
+      <h2>Upload / Capture Image</h2>
+
+      <div id="uploader" class="uploader">
+        <input id="fileInput" type="file" accept="image/*" />
+        <div id="dropZone" class="drop-zone">
+          <p>Drag & drop an image here<br/>or click to select</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="captureBtn" class="btn">Open Webcam</button>
+        <button id="sampleBtn" class="btn outline">Load Sample</button>
+        <button id="clearBtn" class="btn ghost">Clear</button>
+      </div>
+
+      <div id="previewArea" class="preview-area hidden">
+        <canvas id="previewCanvas" width="128" height="128"></canvas>
+        <div class="preview-meta">
+          <small id="imageInfo"></small>
+          <button id="predictBtn" class="btn primary">Predict</button>
+        </div>
+      </div>
+
+      <div id="webcamModal" class="modal hidden">
+        <div class="modal-content">
+          <video id="webcamVideo" autoplay playsinline></video>
+          <div class="modal-actions">
+            <button id="snapBtn" class="btn">Snap</button>
+            <button id="closeCamBtn" class="btn ghost">Close</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="results-card">
+      <h2>Results</h2>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Predicting...</p>
+      </div>
+
+      <div id="errorMsg" class="error hidden"></div>
+
+      <div id="results" class="results hidden">
+        <h3>Top Predictions</h3>
+        <ul id="predList" class="pred-list"></ul>
+
+        <h4>Confidence Bars</h4>
+        <canvas id="barsCanvas" width="400" height="160"></canvas>
+
+      </div>
+
+      <div class="history-card">
+        <h4>Prediction History</h4>
+        <ul id="historyList" class="history-list"></ul>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Built by: Your Name — CIFAR-10 demo. Connects to <code>/predict</code> endpoint on the same host.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
