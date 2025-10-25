@@ -1,6 +1,8 @@
 // script.js - frontend logic for CIFAR-10 FastAPI
 
-const API_PREDICT = 'http://127.0.0.1:8000/predict'; // adjust if backend runs on different host/port
+// API endpoint - relative path to work when served from FastAPI static files
+// If running separately, change to full URL like 'http://127.0.0.1:8000/predict'
+const API_PREDICT = '/predict';
 
 const fileInput = document.getElementById('fileInput');
 const dropZone = document.getElementById('dropZone');
@@ -80,23 +82,38 @@ function handleFile(file){
   setCurrentBlob(file, file.name);
 }
 
-// sample image (tiny embedded sample as dataURL to avoid external fetch)
+// sample image - creates a simple colored test image
 sampleBtn.addEventListener('click', ()=>{
-  // small transparent pixel (user should replace with real sample images if needed)
-  const img = new Image();
-  img.onload = ()=> drawPreviewFromImage(img);
-  img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAQCAYAAAB49l0dAAAAF0lEQVRYR+3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAP4G6ZkAAXqf1QsAAAAASUVORK5CYII=';
-  // create blob from canvas afterwards if user wants to predict
-  img.onload = ()=>{
-    const c = document.createElement('canvas'); c.width=128; c.height=128;
-    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,128,128);
-    c.toBlob(b=> setCurrentBlob(b, 'sample.png'));
-  };
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  
+  // Create a simple gradient pattern as sample
+  const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+  gradient.addColorStop(0, '#3b82f6');
+  gradient.addColorStop(1, '#8b5cf6');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
+  
+  // Add some shapes to make it look like something
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(64, 64, 30, 0, Math.PI * 2);
+  ctx.fill();
+  
+  canvas.toBlob(blob => {
+    if(blob) setCurrentBlob(blob, 'sample.png');
+  });
 });
 
 // clear
 clearBtn.addEventListener('click', ()=>{
-  currentBlob = null; hide(previewArea); hide(results); clearError(); hide(document.getElementById('loading'));
+  currentBlob = null; 
+  hide(previewArea); 
+  hide(results); 
+  clearError(); 
+  hide(loading);
 });
 
 // predict
@@ -110,14 +127,18 @@ predictBtn.addEventListener('click', async ()=>{
   try{
     const resp = await fetch(API_PREDICT, {method:'POST', body: form});
     if(!resp.ok){
-      const txt = await resp.text(); throw new Error(`Server error: ${resp.status} ${txt}`);
+      const txt = await resp.text(); 
+      throw new Error(`Server error: ${resp.status} - ${txt}`);
     }
     const data = await resp.json();
     // expected format: {predictions: [{class: 'airplane', prob: 0.7}, ...]}
     renderResults(data);
   }catch(err){
     setError(err.message || 'Prediction failed');
-  }finally{hide(loading)}
+    console.error('Prediction error:', err);
+  }finally{
+    hide(loading);
+  }
 });
 
 function renderResults(data){
@@ -155,50 +176,110 @@ function drawBars(top3){
   });
 }
 
-// history
+// history functions
 function loadHistory(){
-  const raw = localStorage.getItem('cifar_history');
-  return raw ? JSON.parse(raw) : [];
+  try {
+    const raw = localStorage.getItem('cifar_history');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) {
+    console.error('Error loading history:', e);
+    return [];
+  }
 }
-function saveHistory(arr){ localStorage.setItem('cifar_history', JSON.stringify(arr)) }
+
+function saveHistory(arr){ 
+  try {
+    localStorage.setItem('cifar_history', JSON.stringify(arr));
+  } catch(e) {
+    console.error('Error saving history:', e);
+  }
+}
+
 function pushHistory(top){
   const h = loadHistory();
   const entry = {time: Date.now(), class: top.class, prob: top.prob};
-  h.unshift(entry); if(h.length>10) h.pop(); saveHistory(h); renderHistory();
+  h.unshift(entry); 
+  if(h.length>10) h.pop(); 
+  saveHistory(h); 
+  renderHistory();
 }
+
 function renderHistory(){
-  const h = loadHistory(); historyList.innerHTML='';
+  const h = loadHistory(); 
+  historyList.innerHTML='';
   h.forEach(it=>{
-    const li = document.createElement('li'); li.className='history-item';
-    const d = new Date(it.time); li.textContent = `${d.toLocaleString()} — ${it.class} (${(it.prob*100).toFixed(1)}%)`;
+    const li = document.createElement('li'); 
+    li.className='history-item';
+    const d = new Date(it.time); 
+    li.textContent = `${d.toLocaleString()} — ${it.class} (${(it.prob*100).toFixed(1)}%)`;
     historyList.appendChild(li);
   });
 }
+
+// initialize history on load
 renderHistory();
 
-// webcam
+// webcam functionality
 captureBtn.addEventListener('click', async ()=>{
-  hide(errorMsg); webcamModal.classList.remove('hidden');
+  hide(errorMsg); 
+  webcamModal.classList.remove('hidden');
   try{
     mediaStream = await navigator.mediaDevices.getUserMedia({video:true});
     webcamVideo.srcObject = mediaStream;
-  }catch(e){ setError('Unable to access webcam'); webcamModal.classList.add('hidden') }
+  }catch(e){ 
+    setError('Unable to access webcam'); 
+    webcamModal.classList.add('hidden');
+    console.error('Webcam error:', e);
+  }
 });
-closeCamBtn.addEventListener('click', ()=>{ stopWebcam(); webcamModal.classList.add('hidden') });
-snapBtn.addEventListener('click', ()=>{
-  const c = document.createElement('canvas'); c.width=128; c.height=128;
-  const ctx = c.getContext('2d'); ctx.drawImage(webcamVideo, 0, 0, c.width, c.height);
-  c.toBlob(b=> setCurrentBlob(b, 'webcam.png'));
-  stopWebcam(); webcamModal.classList.add('hidden');
-});
-function stopWebcam(){ if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; webcamVideo.srcObject=null }}
 
-// dark mode
+closeCamBtn.addEventListener('click', ()=>{ 
+  stopWebcam(); 
+  webcamModal.classList.add('hidden');
+});
+
+snapBtn.addEventListener('click', ()=>{
+  const c = document.createElement('canvas'); 
+  c.width=128; 
+  c.height=128;
+  const ctx = c.getContext('2d'); 
+  ctx.drawImage(webcamVideo, 0, 0, c.width, c.height);
+  c.toBlob(b=> {
+    if(b) setCurrentBlob(b, 'webcam.png');
+  });
+  stopWebcam(); 
+  webcamModal.classList.add('hidden');
+});
+
+function stopWebcam(){ 
+  if(mediaStream){ 
+    mediaStream.getTracks().forEach(t=>t.stop()); 
+    mediaStream=null; 
+    webcamVideo.srcObject=null;
+  }
+}
+
+// dark mode toggle
 darkToggle.addEventListener('change', ()=>{
   document.body.classList.toggle('dark', darkToggle.checked);
+  // Save preference
+  try {
+    localStorage.setItem('darkMode', darkToggle.checked);
+  } catch(e) {
+    console.error('Error saving dark mode preference:', e);
+  }
 });
 
-// initial drag click to open file dialog
-dropZone.addEventListener('click', ()=> fileInput.click());
+// Load dark mode preference on startup
+try {
+  const darkMode = localStorage.getItem('darkMode');
+  if(darkMode === 'true') {
+    darkToggle.checked = true;
+    document.body.classList.add('dark');
+  }
+} catch(e) {
+  console.error('Error loading dark mode preference:', e);
+}
 
-// helpful note: user may run backend on a different port. If so, update API_PREDICT accordingly.
+// Click on drop zone to open file dialog
+dropZone.addEventListener('click', ()=> fileInput.click());
